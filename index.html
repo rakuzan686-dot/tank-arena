@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Танковая Арена</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230a0a12'/><rect x='15' y='40' width='70' height='30' fill='%23e94560' rx='5'/><circle cx='50' cy='30' r='15' fill='%23ff5577'/><rect x='45' y='28' width='35' height='8' fill='%23222'/></svg>">
 <style>
     * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; user-select: none; }
     body { background: #000; overflow: hidden; font-family: 'Courier New', monospace; height: 100vh; }
@@ -58,7 +59,7 @@
 <div class="overlay" id="menu">
     <h1>ТАНКОВАЯ АРЕНА</h1>
     <h2>BATTLE ROYALE</h2>
-    <p>Уничтожай врагов. Последний выживший побеждает. Левый джойстик — движение, правый — прицел, 💥 — выстрел.</p>
+    <p>Уничтожай врагов. Последний выживший побеждает. Левый джойстик — движение, правый — прицел. Тапни по правой половине экрана — башня повернётся туда.</p>
     <div class="maps">
         <button class="map-btn active" data-map="0">🏜️ ПУСТЫНЯ</button>
         <button class="map-btn" data-map="1">🌲 ЛЕС</button>
@@ -123,8 +124,7 @@ function makeObstacles() {
 }
 
 function makeBot(index) {
-    let x, y, ok;
-    let tries = 0;
+    let x, y, ok, tries = 0;
     do {
         x = 100 + Math.random() * (WORLD_W - 200);
         y = 100 + Math.random() * (WORLD_H - 200);
@@ -233,7 +233,9 @@ function update() {
         player.y = Math.max(30, Math.min(WORLD_H - 30, player.y));
         collideObstacles(player);
         if (sp > 0.3) player.angle = Math.atan2(player.vy, player.vx);
-        if (joyR.active) player.turretAngle = Math.atan2(joyR.dy, joyR.dx);
+        if (joyR.active && (Math.abs(joyR.dx) > 0.05 || Math.abs(joyR.dy) > 0.05)) {
+            player.turretAngle = Math.atan2(joyR.dy, joyR.dx);
+        }
         if (shootPressed) shoot(player, true);
     }
 
@@ -343,40 +345,30 @@ function showResult(title, text) {
     document.getElementById('shootBtn').style.display = 'none';
 }
 
-// Рисование танка с нормальным дулом
 function drawTank(x, y, angle, turretAngle, color, isPlayer, name) {
     ctx.save();
     ctx.translate(x, y);
-
-    // Корпус
     ctx.save();
     ctx.rotate(angle);
-    // Гусеницы
     ctx.fillStyle = '#111';
     ctx.fillRect(-24, -20, 48, 8);
     ctx.fillRect(-24, 12, 48, 8);
-    // Траки
     ctx.fillStyle = '#333';
     for (let i = -22; i < 22; i += 6) {
         ctx.fillRect(i, -20, 3, 8);
         ctx.fillRect(i, 12, 3, 8);
     }
-    // Корпус
     ctx.fillStyle = color;
     ctx.fillRect(-22, -13, 44, 26);
-    // Тень сверху
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
     ctx.fillRect(-22, -13, 44, 5);
-    // Обводка
     ctx.strokeStyle = 'rgba(0,0,0,0.6)';
     ctx.lineWidth = 2;
     ctx.strokeRect(-22, -13, 44, 26);
     ctx.restore();
 
-    // Башня
     ctx.save();
     ctx.rotate(turretAngle);
-    // Основание башни
     ctx.fillStyle = isPlayer ? '#ff5577' : '#5a5a9a';
     ctx.beginPath();
     ctx.arc(0, 0, 14, 0, Math.PI * 2);
@@ -384,21 +376,18 @@ function drawTank(x, y, angle, turretAngle, color, isPlayer, name) {
     ctx.strokeStyle = 'rgba(0,0,0,0.6)';
     ctx.lineWidth = 2;
     ctx.stroke();
-    // Ствол (дуло) — нормальный, с утолщением
     ctx.fillStyle = '#2a2a2a';
-    ctx.fillRect(0, -3, 38, 6);           // сам ствол
+    ctx.fillRect(0, -3, 38, 6);
     ctx.fillStyle = '#444';
-    ctx.fillRect(32, -4, 8, 8);           // дульный тормоз
+    ctx.fillRect(32, -4, 8, 8);
     ctx.fillStyle = '#1a1a1a';
-    ctx.fillRect(38, -4, 3, 8);           // кончик
-    // Люк на башне
+    ctx.fillRect(38, -4, 3, 8);
     ctx.fillStyle = 'rgba(0,0,0,0.4)';
     ctx.beginPath();
     ctx.arc(-4, 0, 5, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
 
-    // Ник над танком
     ctx.fillStyle = isPlayer ? '#e94560' : '#fff';
     ctx.font = 'bold 11px Courier New';
     ctx.textAlign = 'center';
@@ -406,7 +395,6 @@ function drawTank(x, y, angle, turretAngle, color, isPlayer, name) {
     ctx.shadowBlur = 4;
     ctx.fillText(name, 0, -36);
     ctx.shadowBlur = 0;
-
     ctx.restore();
 }
 
@@ -468,7 +456,6 @@ function draw() {
 
     ctx.restore();
 
-    // Радар
     rctx.clearRect(0, 0, 90, 90);
     rctx.fillStyle = 'rgba(5,10,5,0.9)';
     rctx.beginPath(); rctx.arc(45, 45, 45, 0, Math.PI*2); rctx.fill();
@@ -508,12 +495,25 @@ function loop() {
     requestAnimationFrame(loop);
 }
 
-// Джойстики
-function setupJoystick(el, joy) {
+function setupJoystick(el, joy, isAim) {
     function start(e) {
         e.preventDefault();
         joy.active = true;
         joy.id = e.touches ? e.touches[0].identifier : 'mouse';
+        if (isAim) {
+            let touch = e.touches ? e.touches[0] : e;
+            let rect = el.getBoundingClientRect();
+            let cx = rect.left + rect.width / 2;
+            let cy = rect.top + rect.height / 2;
+            let dx = touch.clientX - cx;
+            let dy = touch.clientY - cy;
+            if (Math.hypot(dx, dy) > 5) {
+                joy.dx = dx / Math.hypot(dx, dy);
+                joy.dy = dy / Math.hypot(dx, dy);
+            } else {
+                joy.dx = 1; joy.dy = 0;
+            }
+        }
         move(e);
     }
     function move(e) {
@@ -529,6 +529,7 @@ function setupJoystick(el, joy) {
         let d = Math.hypot(dx, dy);
         let maxD = rect.width / 2 - 12;
         if (d > maxD) { dx = dx / d * maxD; dy = dy / d * maxD; d = maxD; }
+        if (d < 8 && isAim) return;
         joy.dx = dx / maxD;
         joy.dy = dy / maxD;
         let stick = el.querySelector('.stick');
@@ -539,8 +540,8 @@ function setupJoystick(el, joy) {
         let stick = el.querySelector('.stick');
         stick.style.transform = 'translate(0, 0)';
     }
-    el.addEventListener('touchstart', start);
-    el.addEventListener('touchmove', move);
+    el.addEventListener('touchstart', start, { passive: false });
+    el.addEventListener('touchmove', move, { passive: false });
     el.addEventListener('touchend', end);
     el.addEventListener('touchcancel', end);
     el.addEventListener('mousedown', start);
@@ -548,8 +549,8 @@ function setupJoystick(el, joy) {
     document.addEventListener('mouseup', end);
 }
 
-setupJoystick(document.getElementById('joyLeft'), joyL);
-setupJoystick(document.getElementById('joyRight'), joyR);
+setupJoystick(document.getElementById('joyLeft'), joyL, false);
+setupJoystick(document.getElementById('joyRight'), joyR, true);
 
 let shootEl = document.getElementById('shootBtn');
 shootEl.addEventListener('touchstart', e => { e.preventDefault(); shootPressed = true; });
@@ -567,6 +568,20 @@ document.addEventListener('keydown', e => {
 document.addEventListener('keyup', e => {
     keys[e.key] = false;
     if (e.key === ' ') shootPressed = false;
+});
+
+// Тап по правой половине экрана = прицел
+canvas.addEventListener('touchstart', (e) => {
+    if (gameState !== 'playing' || !player.alive) return;
+    for (let touch of e.changedTouches) {
+        if (touch.clientX > W / 2) {
+            let dx = touch.clientX - W / 2;
+            let dy = touch.clientY - H / 2;
+            if (Math.hypot(dx, dy) > 20) {
+                player.turretAngle = Math.atan2(dy, dx);
+            }
+        }
+    }
 });
 
 const origUpdate = update;
